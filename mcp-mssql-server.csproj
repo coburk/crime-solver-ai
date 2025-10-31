@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <RootNamespace>MCP.MSSQL.Server</RootNamespace>
+    <AssemblyName>MCP.MSSQL.Server</AssemblyName>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    
+    <!-- NuGet Package Metadata -->
+    <PackageId>MCP.MSSQL.Server</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>CrimeSolverAI</Authors>
+    <Description>A reusable MSSQL Model Context Protocol (MCP) server implementation that exposes database tools following the MCP standard with JSON-RPC 2.0 protocol.</Description>
+    <PackageProjectUrl>https://github.com/your-org/mcp-mssql-server</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/your-org/mcp-mssql-server</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>MCP;MSSQL;JSON-RPC;Database;AI;Protocol</PackageTags>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+</ItemGroup>
+
+</Project>

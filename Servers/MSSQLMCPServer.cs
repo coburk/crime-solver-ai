@@ -15,7 +15,7 @@ namespace MCP.MSSQL.Server
    private readonly string _connectionString;
         private readonly int _queryTimeoutSeconds;
       private readonly int _maxRowLimit;
-        private readonly ILogger<MSSQLMCPServer>? _logger;
+      private readonly ILogger<MSSQLMCPServer> _logger;
 
   /// <summary>
        /// Initializes a new instance of the MSSQLMCPServer.
@@ -28,12 +28,12 @@ namespace MCP.MSSQL.Server
  string connectionString,
      int queryTimeoutSeconds = 30,
         int maxRowLimit = 1000,
-     ILogger<MSSQLMCPServer>? logger = null)
+            ILogger<MSSQLMCPServer>? logger = null)
      {
       _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
          _queryTimeoutSeconds = queryTimeoutSeconds;
            _maxRowLimit = maxRowLimit;
-  _logger = logger;
+         _logger = logger;
     }
 
         /// <summary>
@@ -288,114 +288,107 @@ if (!IsSelectOnlyQuery(query))
        /// Includes column definitions, data types, and foreign key relationships.
         /// </summary>
         private async Task<List<TableSchema>> GetTablesSchemaAsync(SqlConnection connection)
-        {
-      var tables = new List<TableSchema>();
+   {
+ var tables = new List<TableSchema>();
 
-  // Get all user tables
-        const string tableQuery = @"
+      // Get all user tables
+           const string tableQuery = @"
 SELECT TABLE_NAME 
-            FROM INFORMATION_SCHEMA.TABLES 
-     WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = 'dbo'
-       ORDER BY TABLE_NAME";
+        FROM INFORMATION_SCHEMA.TABLES 
+            WHERE TABLE_TYPE = 'BASE TABLE' AND TABLE_SCHEMA = 'dbo'
+           ORDER BY TABLE_NAME";
 
-     var tableNames = new List<string>();
-     using (var command = new SqlCommand(tableQuery, connection))
-            {
+        using (var command = new SqlCommand(tableQuery, connection))
+  {
         using var reader = await command.ExecuteReaderAsync();
-                while (await reader.ReadAsync())
-    {
-      tableNames.Add(reader.GetString(0));
-   }
-            }
-
-      // Process each table separately to avoid multiple active readers
-        foreach (var tableName in tableNames)
-     {
-            var table = new TableSchema { TableName = tableName };
-
-            // Get columns for each table
-                const string columnsQuery = @"
-        SELECT 
-                COLUMN_NAME,
-  DATA_TYPE,
-            CHARACTER_MAXIMUM_LENGTH,
-           IS_NULLABLE,
-        COLUMNPROPERTY(OBJECT_ID(TABLE_SCHEMA + '.' + TABLE_NAME), COLUMN_NAME, 'IsIdentity') as IsIdentity
-        FROM INFORMATION_SCHEMA.COLUMNS
-       WHERE TABLE_NAME = @TableName AND TABLE_SCHEMA = 'dbo'
-   ORDER BY ORDINAL_POSITION";
-
-    using (var command = new SqlCommand(columnsQuery, connection))
-              {
-       command.Parameters.AddWithValue("@TableName", tableName);
-          using var reader = await command.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-           {
-  var columnName = reader.GetString(0);
-       var dataType = reader.GetString(1);
-            var maxLength = reader.IsDBNull(2) ? (int?)null : Convert.ToInt32(reader.GetValue(2));
-       var isNullable = reader.GetString(3) == "YES";
-       var isIdentity = reader.IsDBNull(4) ? false : reader.GetInt32(4) == 1;
-                  var isPrimaryKey = await IsPrimaryKeyColumnAsync(connection, tableName, columnName);
-
-    table.Columns.Add(new ColumnInfo
- {
-    ColumnName = columnName,
-        DataType = dataType,
-                MaxLength = maxLength,
-          IsNullable = isNullable,
-        IsIdentity = isIdentity,
-    IsPrimaryKey = isPrimaryKey
-      });
-            }
-        }
-
-             // Get row count
-    using (var command = new SqlCommand($"SELECT COUNT(*) FROM [{tableName}]", connection))
-      {
-        var count = await command.ExecuteScalarAsync();
-   table.RowCount = count != null ? (int)count : 0;
-              }
-
-       // Get foreign keys
-       const string fkQuery = @"
-       SELECT 
-  rc.CONSTRAINT_NAME,
-    kcu.TABLE_NAME as FromTable,
-            kcu.COLUMN_NAME as FromColumn,
- kcu2.TABLE_NAME as ToTable,
-  kcu2.COLUMN_NAME as ToColumn
-    FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
- INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
- ON rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
-    INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu2
-      ON rc.UNIQUE_CONSTRAINT_NAME = kcu2.CONSTRAINT_NAME
-         AND kcu.ORDINAL_POSITION = kcu2.ORDINAL_POSITION
-      WHERE kcu.TABLE_NAME = @TableName AND kcu.TABLE_SCHEMA = 'dbo'
-    AND kcu2.TABLE_SCHEMA = 'dbo'";
-
-         using (var command = new SqlCommand(fkQuery, connection))
-    {
-  command.Parameters.AddWithValue("@TableName", tableName);
-         using var reader = await command.ExecuteReaderAsync();
  while (await reader.ReadAsync())
+            {
+ tables.Add(new TableSchema { TableName = reader.GetString(0) });
+    }
+  }
+
+         // Get columns for each table
+      foreach (var table in tables)
+         {
+   const string columnsQuery = @"
+           SELECT 
+        COLUMN_NAME,
+        DATA_TYPE,
+         CHARACTER_MAXIMUM_LENGTH,
+   IS_NULLABLE,
+   COLUMNPROPERTY(OBJECT_ID(TABLE_SCHEMA + '.' + TABLE_NAME), COLUMN_NAME, 'IsIdentity') as IsIdentity
+            FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_NAME = @TableName AND TABLE_SCHEMA = 'dbo'
+        ORDER BY ORDINAL_POSITION";
+
+   using (var command = new SqlCommand(columnsQuery, connection))
   {
-    table.ForeignKeys.Add(new ForeignKeyInfo
+        command.Parameters.AddWithValue("@TableName", table.TableName);
+   using var reader = await command.ExecuteReaderAsync();
+               while (await reader.ReadAsync())
+         {
+ var columnName = reader.GetString(0);
+    var dataType = reader.GetString(1);
+           var maxLength = reader.IsDBNull(2) ? (int?)null : Convert.ToInt32(reader.GetValue(2));
+      var isNullable = reader.GetString(3) == "YES";
+     var isIdentity = reader.IsDBNull(4) ? false : reader.GetInt32(4) == 1;
+        var isPrimaryKey = await IsPrimaryKeyColumnAsync(connection, table.TableName ?? "", columnName);
+
+             table.Columns.Add(new ColumnInfo
   {
+         ColumnName = columnName,
+        DataType = dataType,
+               MaxLength = maxLength,
+      IsNullable = isNullable,
+      IsIdentity = isIdentity,
+      IsPrimaryKey = isPrimaryKey
+   });
+     }
+           }
+
+               // Get row count
+           using (var command = new SqlCommand($"SELECT COUNT(*) FROM [{table.TableName}]", connection))
+         {
+       var count = await command.ExecuteScalarAsync();
+            table.RowCount = count != null ? (int)count : 0;
+     }
+
+      // Get foreign keys
+          const string fkQuery = @"
+       SELECT 
+       CONSTRAINT_NAME,
+          TABLE_NAME,
+           COLUMN_NAME,
+ REFERENCED_TABLE_NAME,
+                  REFERENCED_COLUMN_NAME
+      FROM INFORMATION_SCHEMA.REFERENTIAL_CONSTRAINTS rc
+  INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu
+   ON rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+        INNER JOIN INFORMATION_SCHEMA.KEY_COLUMN_USAGE kcu2
+  ON rc.UNIQUE_CONSTRAINT_NAME = kcu2.CONSTRAINT_NAME
+         AND kcu.ORDINAL_POSITION = kcu2.ORDINAL_POSITION
+        WHERE kcu.TABLE_NAME = @TableName AND kcu.TABLE_SCHEMA = 'dbo'";
+
+      using (var command = new SqlCommand(fkQuery, connection))
+         {
+         command.Parameters.AddWithValue("@TableName", table.TableName);
+      using var reader = await command.ExecuteReaderAsync();
+  while (await reader.ReadAsync())
+       {
+               table.ForeignKeys.Add(new ForeignKeyInfo
+           {
    ConstraintName = reader.GetString(0),
-          FromTable = reader.GetString(1),
-      FromColumn = reader.GetString(2),
+  FromTable = reader.GetString(1),
+         FromColumn = reader.GetString(2),
     ToTable = reader.GetString(3),
-       ToColumn = reader.GetString(4)
+   ToColumn = reader.GetString(4)
       });
-       }
       }
+      }
+             }
 
-                tables.Add(table);
-            }
-
-        return tables;
-        }
+           return tables;
+     }
 
     /// <summary>
   /// Determines if a column is part of the primary key.

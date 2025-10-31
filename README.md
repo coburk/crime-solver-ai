@@ -1,348 +1,246 @@
-# ?? MODULAR ARCHITECTURE IMPLEMENTATION - COMPLETE!
+# MCP MSSQL Server
 
-## ? What Has Been Accomplished
+A reusable, production-ready MSSQL Model Context Protocol (MCP) server implementation for exposing read-only database access through the MCP standard.
 
-Your project has been successfully transformed into a **professional, production-ready modular architecture** with complete separation between a reusable library and the application.
+## Overview
 
----
+This library provides a complete MCP server implementation that:
+- ?? Exposes database schema through `schema.describe` tool
+- ??? Lists available tools through `tools.list` method
+- ?? Executes read-only SELECT queries via `sql.execute_readonly` tool
+- ?? Enforces query-level security (rejects DML/DDL statements)
+- ?? Tracks performance metrics and query execution time
+- ?? Comprehensive logging with ILogger support
+- ? Follows JSON-RPC 2.0 protocol standard
 
-## ?? Project Structure
+## Installation
 
-```
-AI Sandbox/
-?
-?? ?? mcp-mssql-server/    ? REUSABLE LIBRARY
-?  ?? Models/
-?  ?  ?? MCPRequest.cs     (JSON-RPC requests)
-?  ?  ?? ToolDefinition.cs      (MCP tool definitions)
-?  ?  ?? SchemaDescribeResponse.cs  (Database schema)
-?  ?  ?? SQLExecuteResponse.cs   (Query results)
-?  ?? Servers/
-?  ?  ?? MSSQLMCPServer.cs    (Main MCP server implementation)
-?  ?? GlobalUsings.cs
-?  ?? mcp-mssql-server.csproj  (Library manifest - NuGet ready)
-?  ?? README.md                 (Library documentation)
-?
-?? ?? CrimeSolverAI/            ? HOST APPLICATION
-?  ?? Program.cs          (ASP.NET Core setup)
-?  ?? appsettings.json          (Configuration)
-?  ?? CrimeSolverAI.csproj  (Refs library)
-?  ?? GlobalUsings.cs
-?
-?? ? Tests/      ? TEST SUITE
-?  ?? MCPServerTests.cs         (Integration tests)
-?  ?? MCPClientServiceTests.cs  (Model validation)
-?  ?? QUICK_START.md
-?  ?? MANUAL_TESTING_GUIDE.md
-?
-?? ?? CrimeSolverAI.sln         (Solution file - builds both projects)
-?? ?? MODULAR_ARCHITECTURE.md   (Architecture documentation)
-?? ?? SETUP_COMPLETE.md         (This summary)
-?? .gitignore             (Git ignore rules)
+Add to your project:
+
+```bash
+dotnet add package MCP.MSSQL.Server
 ```
 
----
+Or via NuGet Package Manager:
+```
+Install-Package MCP.MSSQL.Server
+```
 
-## ?? Key Components
+## Quick Start
 
-### **1. mcp-mssql-server Library** ??
-- **Namespace:** `MCP.MSSQL.Server`
-- **Namespace:** `MCP.MSSQL.Server.Models`
-- **Framework:** .NET 9.0
-- **Status:** ? Built and tested
-- **Features:**
-  - ? JSON-RPC 2.0 compliant
-  - ? Database schema introspection
-  - ? Read-only query execution
-  - ? Comprehensive error handling
-  - ? Performance logging
-  - ? Security validation (prevents DML/DDL)
+### 1. Register in Dependency Injection
 
-### **2. CrimeSolverAI Application** ??
-- **Namespace:** `CrimeSolverAI`
-- **Framework:** .NET 9.0 ASP.NET Core Web
-- **Status:** ? Built and running
-- **Features:**
-  - ? Dashboard home page
-  - ? `/mcp/invoke` POST endpoint
-  - ? `/health` GET endpoint
-  - ? Dependency injection setup
-  - ? Configuration management
-  - ? Database connectivity
-
-### **3. Solution** ??
-- **File:** `CrimeSolverAI.sln`
-- **Contains:** 2 projects
-  - mcp-mssql-server (Library)
-  - CrimeSolverAI (Application)
-- **Build Command:** `dotnet build CrimeSolverAI.sln`
-- **Status:** ? Builds successfully
-
----
-
-## ??? Architecture Benefits
-
-### ? **Reusability**
 ```csharp
-// Use in OTHER projects:
-dotnet add package MCP.MSSQL.Server
 using MCP.MSSQL.Server;
-new MSSQLMCPServer(...);
+
+var builder = WebApplication.CreateBuilder(args);
+
+// Register MCP Server
+var connectionString = builder.Configuration.GetConnectionString("CrimeSolverReadOnly");
+var queryTimeout = builder.Configuration.GetValue("MCP:QueryTimeoutSeconds", 30);
+var maxRowLimit = builder.Configuration.GetValue("MCP:MaxRowLimit", 1000);
+
+builder.Services.AddSingleton(sp =>
+    new MSSQLMCPServer(
+        connectionString,
+      queryTimeout,
+        maxRowLimit,
+        sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
+
+var app = builder.Build();
 ```
 
-### ?? **Separation of Concerns**
-```
-mcp-mssql-server/
-?? Core MCP protocol implementation
-?? Database interaction logic
-?? Model definitions
+### 2. Configure Application Settings
 
-CrimeSolverAI/
-?? ASP.NET Core configuration
-?? Business logic
-?? Domain-specific endpoints
-```
+Add to `appsettings.json`:
 
-### ?? **Independent Versioning**
-```
-MCP.MSSQL.Server v1.0.0
-CrimeSolverAI v2.3.0
-
-Can update each independently!
+```json
+{
+  "ConnectionStrings": {
+    "CrimeSolverReadOnly": "Server=yourserver;Database=yourdb;User Id=readonly_user;Password=***;Encrypt=true;TrustServerCertificate=false;"
+  },
+  "MCP": {
+    "QueryTimeoutSeconds": 30,
+  "MaxRowLimit": 1000
+  }
+}
 ```
 
-### ?? **Testability**
+### 3. Expose MCP Endpoints
+
+```csharp
+// MCP Invoke Endpoint
+app.MapPost("/mcp/invoke", async (MCPRequest request, MSSQLMCPServer server) =>
+{
+    var response = await server.ProcessRequestAsync(request);
+    return Results.Json(response);
+});
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { status = "healthy" }));
+
+app.Run();
 ```
-Library Tests:
-?? Unit tests for models
-?? Integration tests for server
-?? Security validation tests
 
-Application Tests:
-?? Endpoint tests
-?? Configuration tests
-?? End-to-end tests
-```
+## Usage Examples
 
----
+### Discover Available Tools
 
-## ?? Building & Running
-
-### Build the Solution
 ```bash
-dotnet build CrimeSolverAI.sln
+curl -X POST https://localhost:5000/mcp/invoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "tools.list",
+    "params": {}
+  }'
 ```
 
-### Build Just the Library
+### Retrieve Database Schema
+
 ```bash
-dotnet build mcp-mssql-server/mcp-mssql-server.csproj
+curl -X POST https://localhost:5000/mcp/invoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+ "id": "2",
+    "method": "schema.describe",
+  "params": {}
+  }'
 ```
 
-### Build Just the Application
+### Execute a Read-Only Query
+
 ```bash
-dotnet build CrimeSolverAI.csproj
+curl -X POST https://localhost:5000/mcp/invoke \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": "3",
+    "method": "sql.execute_readonly",
+    "params": {
+   "query": "SELECT TOP 10 * FROM Cases WHERE CaseStatus = '\''Active'\''"
+    }
+  }'
 ```
 
-### Run the Application
-```bash
-dotnet run --project CrimeSolverAI.csproj
+## API Reference
+
+### MCP Methods
+
+#### tools.list
+Advertises available database tools.
+
+**Response:**
+```json
+{
+  "tools": [
+    {
+      "name": "schema.describe",
+      "description": "Returns database schema information...",
+      "inputSchema": []
+    },
+    {
+      "name": "sql.execute_readonly",
+   "description": "Executes read-only SELECT queries...",
+      "inputSchema": [...]
+    }
+  ]
+}
 ```
 
-### Run Tests
-```bash
-dotnet test CrimeSolverAI.sln
+#### schema.describe
+Retrieves complete database schema including tables, columns, and relationships.
+
+**Response:**
+```json
+{
+  "databaseName": "YourDatabase",
+"retrievedAt": "2024-01-01T12:00:00Z",
+  "tables": [
+    {
+      "tableName": "Cases",
+  "columns": [...],
+      "foreignKeys": [...],
+      "rowCount": 1000
+    }
+  ],
+  "summary": "Retrieved schema for 10 tables..."
+}
 ```
 
----
+#### sql.execute_readonly
+Executes a read-only SELECT query.
 
-## ?? Publishing the Library
+**Parameters:**
+- `query` (string, required): The SELECT query to execute
 
-### 1. Create NuGet Package
-```bash
-dotnet pack mcp-mssql-server -c Release
+**Response:**
+```json
+{
+  "success": true,
+  "query": "SELECT * FROM Cases",
+  "rowCount": 100,
+  "maxRowLimit": 1000,
+  "isTruncated": false,
+  "rows": [...],
+  "columns": ["CaseID", "CaseName", ...],
+  "executionTimeMs": 45,
+  "summary": "Query returned 100 row(s)..."
+}
 ```
 
-### 2. Test Locally
-```bash
-dotnet add package mcp-mssql-server -s ./mcp-mssql-server/bin/Release
+## Security Features
+
+- ? **Read-Only Enforcement**: Rejects INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, EXEC, GRANT, REVOKE
+- ? **Query Validation**: Validates all queries before execution
+- ? **Connection-Level Security**: Uses dedicated read-only database user
+- ? **Timeout Protection**: Configurable query timeout (default: 30 seconds)
+- ? **Row Limits**: Configurable max rows returned (default: 1,000)
+- ? **Comprehensive Logging**: All operations logged with execution metrics
+
+## Configuration Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `ConnectionString` | - | SQL Server connection string (must use read-only user) |
+| `QueryTimeoutSeconds` | 30 | Maximum query execution time in seconds |
+| `MaxRowLimit` | 1000 | Maximum rows returned per query |
+
+## Error Handling
+
+The server returns JSON-RPC 2.0 error responses:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "error": {
+    "code": -32602,
+    "message": "Only SELECT queries are allowed. DML/DDL statements are not permitted."
+  }
+}
 ```
 
-### 3. Publish to NuGet
-```bash
-dotnet nuget push mcp-mssql-server/bin/Release/*.nupkg \
-  -s https://api.nuget.org/v3/index.json \
-  -k your-api-key
-```
+### Error Codes
 
-### 4. Use in Other Projects
-```bash
-dotnet add package MCP.MSSQL.Server
-```
+- `-32601`: Method not found
+- `-32602`: Invalid parameters
+- `-32603`: Internal server error
 
----
+## Best Practices
 
-## ?? What's Included
+1. **Use a Dedicated Read-Only Database User**: Create a SQL Server user with SELECT-only permissions
+2. **Enable Encryption**: Set `Encrypt=true` in connection string
+3. **Monitor Logs**: Enable `Debug` logging for `MCP.MSSQL.Server` namespace
+4. **Set Appropriate Timeouts**: Adjust `QueryTimeoutSeconds` based on your query patterns
+5. **Adjust Row Limits**: Set `MaxRowLimit` based on client capabilities and network conditions
 
-### Source Code Files
-- ? `mcp-mssql-server/Models/*` - MCP models
-- ? `mcp-mssql-server/Servers/MSSQLMCPServer.cs` - Server implementation
-- ? `Program.cs` - Application setup
-- ? `Tests/*` - Test suites
+## License
 
-### Configuration Files
-- ? `CrimeSolverAI.sln` - Solution file
-- ? `mcp-mssql-server/mcp-mssql-server.csproj` - Library project
-- ? `CrimeSolverAI.csproj` - Application project
-- ? `appsettings.json` - Configuration
+MIT
 
-### Documentation Files
-- ? `MODULAR_ARCHITECTURE.md` - Architecture guide (detailed)
-- ? `SETUP_COMPLETE.md` - Setup summary (this file)
-- ? `mcp-mssql-server/README.md` - Library documentation
-- ? `Tests/QUICK_START.md` - Testing guide
-- ? `.gitignore` - Git ignore rules
+## Support
 
----
-
-## ?? How to Use
-
-### **Option 1: Keep Both in One Repository** (Current Setup)
-```bash
-# Clone repository
-git clone <repo-url>
-
-# Build everything
-dotnet build CrimeSolverAI.sln
-
-# Run application
-dotnet run --project CrimeSolverAI.csproj
-```
-
-### **Option 2: Separate Repositories** (Recommended for Teams)
-```bash
-# Create two repositories:
-# 1. mcp-mssql-server (library)
-#    - Publish to NuGet
-#    - Maintain independently
-
-# 2. crimesolverai (application)
-#  - Reference library via NuGet
-#    - Update library versions as needed
-```
-
-### **Option 3: Enterprise Setup** (For Large Teams)
-```bash
-# Private NuGet feed
-# Version management
-# Semantic versioning
-# Automated CI/CD
-# Release management
-```
-
----
-
-## ?? Recommended Next Steps
-
-### Immediate (This Week)
-- [ ] Test the build: `dotnet build CrimeSolverAI.sln`
-- [ ] Run the application: `dotnet run --project CrimeSolverAI.csproj`
-- [ ] Review `MODULAR_ARCHITECTURE.md` for details
-- [ ] Update `appsettings.json` with real database credentials
-
-### Short Term (Next Week)
-- [ ] Run test suite: `dotnet test`
-- [ ] Create GitHub repository for the library
-- [ ] Create GitHub repository for the application
-- [ ] Set up CI/CD pipeline
-
-### Medium Term (Next Month)
-- [ ] Publish library to NuGet
-- [ ] Add automated tests to CI/CD
-- [ ] Add semantic versioning
-- [ ] Document API endpoints
-
-### Long Term (Next Quarter)
-- [ ] Add authentication/authorization
-- [ ] Add request caching
-- [ ] Add advanced query builders
-- [ ] Add performance monitoring
-- [ ] Add analytics
-
----
-
-## ?? Success Criteria - All Met! ?
-
-| Item | Status | Details |
-|------|--------|---------|
-| Clean Separation | ? | Library and app in separate projects |
-| Reusable Library | ? | Can be packaged as NuGet |
-| Professional Naming | ? | `MCP.MSSQL.Server` namespace |
-| Documentation | ? | Comprehensive guides provided |
-| Testing | ? | Test suite included |
-| Solution File | ? | Single build command for both |
-| Best Practices | ? | Enterprise-grade setup |
-| Build Status | ? | Builds successfully |
-
----
-
-## ?? Documentation Files
-
-1. **MODULAR_ARCHITECTURE.md** - Detailed architecture guide
-2. **mcp-mssql-server/README.md** - Library usage and API reference
-3. **SETUP_COMPLETE.md** - This file (overview)
-4. **Tests/QUICK_START.md** - Testing and validation guide
-5. **Tests/MANUAL_TESTING_GUIDE.md** - curl examples
-
----
-
-## ?? Getting Help
-
-### For Library Questions
-- See: `mcp-mssql-server/README.md`
-- Or: `MODULAR_ARCHITECTURE.md`
-
-### For Testing Questions
-- See: `Tests/QUICK_START.md`
-- Or: `Tests/MANUAL_TESTING_GUIDE.md`
-
-### For Architecture Questions
-- See: `MODULAR_ARCHITECTURE.md`
-- Or: This file (SETUP_COMPLETE.md)
-
-### For Build Issues
-- Run: `dotnet clean CrimeSolverAI.sln && dotnet build CrimeSolverAI.sln`
-- Check: Both projects build separately
-- Verify: Configuration in `appsettings.json`
-
----
-
-## ?? Conclusion
-
-Your CrimeSolverAI project is now:
-
-? **Modular** - Cleanly separated library and application  
-? **Reusable** - Library can be used in other projects  
-? **Professional** - Enterprise-grade structure  
-? **Maintainable** - Clean code and comprehensive docs  
-? **Scalable** - Ready for growth and new features  
-? **Publishable** - Can be distributed via NuGet  
-? **Tested** - Comprehensive test suite included  
-? **Documented** - Complete documentation provided  
-
----
-
-## ?? You're Ready!
-
-Your project is set up for success. Now you can:
-1. Build amazing features
-2. Share your library with others
-3. Scale your application
-4. Maintain clean code
-
-**Happy coding! ??**
-
----
-
-*Last Updated: 2024*  
-*Version: 1.0.0*  
-*License: MIT*
+For issues, feature requests, or contributions, please visit the repository.
