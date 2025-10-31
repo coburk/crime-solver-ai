@@ -15,7 +15,7 @@ namespace MCP.MSSQL.Server
    private readonly string _connectionString;
         private readonly int _queryTimeoutSeconds;
       private readonly int _maxRowLimit;
-      private readonly ILogger<MSSQLMCPServer> _logger;
+        private readonly ILogger<MSSQLMCPServer>? _logger;
 
   /// <summary>
        /// Initializes a new instance of the MSSQLMCPServer.
@@ -28,12 +28,12 @@ namespace MCP.MSSQL.Server
  string connectionString,
      int queryTimeoutSeconds = 30,
         int maxRowLimit = 1000,
-            ILogger<MSSQLMCPServer>? logger = null)
+     ILogger<MSSQLMCPServer>? logger = null)
      {
       _connectionString = connectionString ?? throw new ArgumentNullException(nameof(connectionString));
          _queryTimeoutSeconds = queryTimeoutSeconds;
            _maxRowLimit = maxRowLimit;
-         _logger = logger;
+  _logger = logger;
     }
 
         /// <summary>
