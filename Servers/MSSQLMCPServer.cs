@@ -43,33 +43,42 @@ namespace MCP.MSSQL.Server
   /// <param name="request">The incoming MCP request.</param>
  /// <returns>The MCP response as a JSON-serializable object.</returns>
        public async Task<MCPResponse> ProcessRequestAsync(MCPRequest request)
-        {
- var stopwatch = Stopwatch.StartNew();
-           try
-            {
-  _logger?.LogInformation("MCP Request received: Method={Method}, Id={Id}", request.Method, request.Id);
+              {
+       var stopwatch = Stopwatch.StartNew();
+                 try
+          {
+        _logger?.LogInformation("MCP Request received: Method={Method}, Id={Id}", request.Method, request.Id);
 
-      MCPResponse response = request.Method switch
-         {
-              "tools.list" => HandleToolsList(request),
-     "schema.describe" => await HandleSchemaDescribeAsync(request),
-   "sql.execute_readonly" => await HandleSQLExecuteReadOnlyAsync(request),
+            // Route request to appropriate handler based on MCP method
+        // Each handler returns properly formatted JSON-RPC 2.0 response
+                  MCPResponse response = request.Method switch
+               {
+           // tools.list: Advertise available database tools to MCP clients
+               "tools.list" => HandleToolsList(request),
+           // schema.describe: Retrieve complete database schema (tables, columns, relationships)
+        "schema.describe" => await HandleSchemaDescribeAsync(request),
+         // sql.execute_readonly: Execute read-only SELECT queries with safety validation
+            "sql.execute_readonly" => await HandleSQLExecuteReadOnlyAsync(request),
+          // Unknown method: Return JSON-RPC 2.0 error for invalid method
             _ => CreateErrorResponse(request.Id, -32601, $"Method '{request.Method}' not found")
-   };
+         };
 
     stopwatch.Stop();
-         _logger?.LogInformation("MCP Request processed: Method={Method}, Duration={DurationMs}ms, Success={Success}",
+         // Log request completion with method, duration, and success status for monitoring
+       _logger?.LogInformation("MCP Request processed: Method={Method}, Duration={DurationMs}ms, Success={Success}",
           request.Method, stopwatch.ElapsedMilliseconds, response.Error == null);
 
        return response;
           }
 catch (Exception ex)
-        {
-        stopwatch.Stop();
-         _logger?.LogError(ex, "MCP Request failed: Method={Method}, Duration={DurationMs}ms",
-     request.Method, stopwatch.ElapsedMilliseconds);
+ {
+      stopwatch.Stop();
+// Log unexpected errors with full context for debugging
+  _logger?.LogError(ex, "MCP Request failed: Method={Method}, Duration={DurationMs}ms",
+   request.Method, stopwatch.ElapsedMilliseconds);
 
-       return CreateErrorResponse(request.Id, -32603, $"Internal server error: {ex.Message}");
+     // Return JSON-RPC 2.0 standard error response (code -32603 = Internal Server Error)
+    return CreateErrorResponse(request.Id, -32603, $"Internal server error: {ex.Message}");
            }
         }
 
@@ -198,14 +207,18 @@ if (!IsSelectOnlyQuery(query))
           if (string.IsNullOrWhiteSpace(query))
         return false;
 
-       var trimmed = query.Trim().ToUpperInvariant();
+ // Convert to uppercase for case-insensitive keyword matching
+     var trimmed = query.Trim().ToUpperInvariant();
 
-       // Reject non-SELECT operations
-     var forbiddenKeywords = new[] { "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "EXEC", "EXECUTE", "GRANT", "REVOKE" };
-          if (forbiddenKeywords.Any(kw => trimmed.StartsWith(kw) || trimmed.Contains($" {kw} ")))
-      return false;
+     // List of forbidden keywords indicating modification operations
+     // These keywords block DML/DDL injection attacks (INSERT, UPDATE, DELETE, schema changes, procedure execution, etc.)
+    var forbiddenKeywords = new[] { "INSERT", "UPDATE", "DELETE", "CREATE", "DROP", "ALTER", "EXEC", "EXECUTE", "GRANT", "REVOKE" };
+    // Check if forbidden keyword appears at start or surrounded by spaces (prevents false positives)
+    if (forbiddenKeywords.Any(kw => trimmed.StartsWith(kw) || trimmed.Contains($" {kw} ")))
+ return false;
 
-         // Must start with SELECT or WITH (for CTEs)
+   // Validate query starts with safe read-only keywords
+    // SELECT: Standard queries, WITH: Common Table Expressions (CTEs)
     return trimmed.StartsWith("SELECT") || trimmed.StartsWith("WITH");
        }
 
@@ -216,33 +229,41 @@ if (!IsSelectOnlyQuery(query))
  private async Task<SQLExecuteResponse> ExecuteQueryAsync(string query)
     {
       using var connection = new SqlConnection(_connectionString);
-           using var command = new SqlCommand(query, connection)
-         {
-   CommandTimeout = _queryTimeoutSeconds
+    await connection.OpenAsync();
+
+   // Create SQL command with configured timeout to prevent long-running queries from consuming resources
+     using var command = new SqlCommand(query, connection)
+       {
+  // Set command timeout to configured limit (default 30 seconds) - prevents resource exhaustion
+  CommandTimeout = _queryTimeoutSeconds
        };
 
          try
              {
       await connection.OpenAsync();
-   var dataTable = new DataTable();
-            var adapter = new SqlDataAdapter(command);
 
+   var dataTable = new DataTable();
+   var adapter = new SqlDataAdapter(command);
    adapter.Fill(dataTable);
 
      var rows = new List<QueryRow>();
     var columnNames = dataTable.Columns.Cast<DataColumn>().Select(c => c.ColumnName).ToList();
-   var rowCount = Math.Min(dataTable.Rows.Count, _maxRowLimit);
-       var isTruncated = dataTable.Rows.Count > _maxRowLimit;
+   // Enforce row limit: cap results to _maxRowLimit to prevent memory exhaustion
+  var rowCount = Math.Min(dataTable.Rows.Count, _maxRowLimit);
+// Determine if results were truncated due to row limit constraint
+   var isTruncated = dataTable.Rows.Count > _maxRowLimit;
 
-        for (int i = 0; i < rowCount; i++)
+    // Convert DataTable rows to QueryRow objects, enforcing row limit
+       for (int i = 0; i < rowCount; i++)
   {
                var row = new QueryRow();
          var dataRow = dataTable.Rows[i];
 
-               foreach (var columnName in columnNames)
+  foreach (var columnName in columnNames)
       {
-  var value = dataRow[columnName];
-          row.Values[columnName] = value == DBNull.Value ? null : value;
+    // Convert DBNull.Value to null for JSON serialization (JSON doesn't have DBNull concept)
+     var value = dataRow[columnName];
+   row.Values[columnName] = value == DBNull.Value ? null : value;
                  }
 
           rows.Add(row);

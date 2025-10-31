@@ -10,23 +10,30 @@ builder.Services.AddControllers();
 builder.Services.AddLogging();
 
 // Register MCP Server
+// Load configuration values for database access and query constraints
 var connectionString = builder.Configuration.GetConnectionString("CrimeSolverReadOnly");
+// queryTimeout: Maximum allowed query execution time (in seconds) - prevents long-running queries from consuming resources indefinitely
 var queryTimeout = builder.Configuration.GetValue("MCP:QueryTimeoutSeconds", 30);
+// maxRowLimit: Maximum rows returned per query - prevents excessive memory usage and ensures responsive API responses
 var maxRowLimit = builder.Configuration.GetValue("MCP:MaxRowLimit", 1000);
 
+// Register MSSQLMCPServer as a singleton to maintain single database connection pool
+// The server handles all MCP requests (tools.list, schema.describe, sql.execute_readonly)
 builder.Services.AddSingleton(sp =>
     new MSSQLMCPServer(
-        connectionString,
- queryTimeout,
-maxRowLimit,
-        sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
+   connectionString,
+        queryTimeout,
+        maxRowLimit,
+      sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
 
-    var app = builder.Build();
+var app = builder.Build();
 
+// Security: Enforce HTTPS for all connections to protect sensitive database queries
 app.UseHttpsRedirection();
 app.UseAuthorization();
 
 // Default home endpoint - displays the API status and available endpoints
+// Provides interactive documentation for API consumers and MCP clients
 app.MapGet("/", () => Results.Content(
     """
 <!DOCTYPE html>
@@ -37,10 +44,10 @@ app.MapGet("/", () => Results.Content(
         body { font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5f5; }
         .container { max-width: 900px; margin: 0 auto; background: white; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
    h1 { color: #333; border-bottom: 3px solid #007bff; padding-bottom: 10px; }
-      h2 { color: #555; margin-top: 30px; }
-        .endpoint { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff; border-radius: 4px; font-family: monospace; }
-        .status { color: #28a745; font-weight: bold; }
-        .info { background: #e7f3ff; padding: 15px; border-radius: 4px; margin: 20px 0; border-left: 4px solid #2196F3; }
+h2 { color: #555; margin-top: 30px; }
+  .endpoint { background: #f8f9fa; padding: 15px; margin: 10px 0; border-left: 4px solid #007bff; border-radius: 4px; font-family: monospace; }
+    .status { color: #28a745; font-weight: bold; }
+ .info { background: #e7f3ff; padding: 15px; border-radius: 4px; margin: 20px 0; border-left: 4px solid #2196F3; }
         code { background: #f4f4f4; padding: 2px 6px; border-radius: 3px; }
   ul { line-height: 1.8; }
     </style>
@@ -52,38 +59,38 @@ app.MapGet("/", () => Results.Content(
 
         <div class="info">
             <strong>Model Context Protocol (MCP)</strong> implementation for read-only SQL database access.
-            The server exposes database tools through standard JSON-RPC 2.0 endpoints.
+        The server exposes database tools through standard JSON-RPC 2.0 endpoints.
         </div>
         
         <h2>Available Endpoints</h2>
 
         <div class="endpoint">
-            <strong>POST /mcp/invoke</strong><br/>
-      Processes MCP requests for database operations (tools.list, schema.describe, sql.execute_readonly)
+         <strong>POST /mcp/invoke</strong><br/>
+ Processes MCP requests for database operations (tools.list, schema.describe, sql.execute_readonly)
         </div>
         
   <div class="endpoint">
  <strong>GET /health</strong><br/>
     Health check endpoint that returns server status
-        </div>
+  </div>
 
-        <h2>MCP Tools</h2>
+ <h2>MCP Tools</h2>
         <ul>
-            <li><strong>tools.list</strong> - Discover available database tools</li>
+      <li><strong>tools.list</strong> - Discover available database tools</li>
     <li><strong>schema.describe</strong> - Retrieve complete database schema with tables, columns, and relationships</li>
      <li><strong>sql.execute_readonly</strong> - Execute SELECT queries with safety constraints</li>
         </ul>
         
      <h2>Quick Start</h2>
         <p>Use the MCP Client to connect to this server, or make HTTP requests directly:</p>
-        <div class="endpoint">
+ <div class="endpoint">
     curl -X POST https://localhost:61087/mcp/invoke \<br/>
-            &nbsp;&nbsp;-H "Content-Type: application/json" \<br/>
+    &nbsp;&nbsp;-H "Content-Type: application/json" \<br/>
 &nbsp;&nbsp;-d '{<br/>
       &nbsp;&nbsp;&nbsp;&nbsp;"jsonrpc": "2.0",<br/>
         &nbsp;&nbsp;&nbsp;&nbsp;"id": "1",<br/>
      &nbsp;&nbsp;&nbsp;&nbsp;"method": "tools.list",<br/>
-            &nbsp;&nbsp;&nbsp;&nbsp;"params": {}<br/>
+   &nbsp;&nbsp;&nbsp;&nbsp;"params": {}<br/>
    &nbsp;&nbsp;}'
         </div>
      
@@ -91,7 +98,7 @@ app.MapGet("/", () => Results.Content(
         <ul>
     <li>Query Timeout: 30 seconds</li>
    <li>Max Row Limit: 1,000 rows</li>
-    <li>Database: Read-only access via configured connection string</li>
+  <li>Database: Read-only access via configured connection string</li>
         </ul>
      
         <p style="margin-top: 40px; color: #999; font-size: 12px;">
@@ -103,6 +110,9 @@ app.MapGet("/", () => Results.Content(
 """, "text/html"));
 
 // MCP Invoke Endpoint
+// Core endpoint for Model Context Protocol requests following JSON-RPC 2.0 standard
+// Accepts: tools.list, schema.describe, sql.execute_readonly methods
+// Uses dependency injection to get MSSQLMCPServer singleton for request handling
 app.MapPost("/mcp/invoke", async (MCPRequest request, MSSQLMCPServer server) =>
 {
     var response = await server.ProcessRequestAsync(request);
@@ -110,6 +120,8 @@ app.MapPost("/mcp/invoke", async (MCPRequest request, MSSQLMCPServer server) =>
 });
 
 // Health check endpoint
+// Used by load balancers and monitoring systems to verify server availability
+// Returns current UTC timestamp for clock synchronization validation
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));
 
 app.Run();
