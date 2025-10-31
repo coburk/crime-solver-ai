@@ -2,45 +2,45 @@
 
 ## Overview
 
-This repository contains a **modular, production-ready architecture** with two separate .NET 9 projects:
+This repository contains a modular, production-ready architecture with two separate .NET 9 projects:
 
 ```
 CrimeSolverAI/
-??? mcp-mssql-server/ # ?? Reusable MCP Library
-?   ??? Models/  #   - MCPRequest, MCPResponse, etc.
-?   ??? Servers/ #   - MSSQLMCPServer implementation
+??? mcp-mssql-server/ - Reusable MCP Library
+?   ??? Models/  - MCPRequest, MCPResponse, etc.
+?   ??? Servers/ - MSSQLMCPServer implementation
 ?   ??? GlobalUsings.cs
-?   ??? mcp-mssql-server.csproj    #   - Library project file
-?   ??? README.md     #   - Library documentation
+?   ??? mcp-mssql-server.csproj    - Library project file
+?   ??? README.md     - Library documentation
 ?
-??? Tests/                # ? Test Projects
-?   ??? MCPServerTests.cs #   - Integration tests
-?   ??? MCPClientServiceTests.cs   #   - Model tests
+??? Tests/     - Test Projects
+?   ??? MCPServerTests.cs - Integration tests
+?   ??? MCPClientServiceTests.cs   - Model tests
 ?   ??? QUICK_START.md
 ?
-??? Program.cs    # ?? CrimeSolverAI Host Application
-??? appsettings.json        # ?? Configuration
-??? CrimeSolverAI.csproj       # ?? References mcp-mssql-server library
-??? CrimeSolverAI.sln      # ?? Solution file
+??? Program.cs    - CrimeSolverAI Host Application
+??? appsettings.json        - Configuration
+??? CrimeSolverAI.csproj       - References mcp-mssql-server library
+??? CrimeSolverAI.sln      - Solution file
 ```
 
 ## Architecture Benefits
 
-### 1. **Reusability**
+### 1. REUSABILITY
 The `mcp-mssql-server` library can be packaged as a NuGet package and used in other projects:
 ```bash
 dotnet add package MCP.MSSQL.Server
 ```
 
-### 2. **Separation of Concerns**
-- **Library** (`mcp-mssql-server`): Core MCP protocol implementation
-- **Application** (`CrimeSolverAI`): Domain-specific logic and endpoints
+### 2. SEPARATION OF CONCERNS
+- Library (mcp-mssql-server): Core MCP protocol implementation
+- Application (CrimeSolverAI): Domain-specific logic and endpoints
 
-### 3. **Independent Testing**
+### 3. INDEPENDENT TESTING
 - Library can be tested in isolation
 - Application-level tests focus on business logic
 
-### 4. **Easy Maintenance**
+### 4. EASY MAINTENANCE
 - Security updates to MCP don't require full application release
 - Can version library independently
 
@@ -48,7 +48,7 @@ dotnet add package MCP.MSSQL.Server
 
 ### mcp-mssql-server (Library)
 
-**Namespace:** `MCP.MSSQL.Server`
+**Namespace:** MCP.MSSQL.Server
 
 ```csharp
 using MCP.MSSQL.Server;
@@ -68,7 +68,7 @@ using MCP.MSSQL.Server.Models;
 
 ### CrimeSolverAI (Application)
 
-**Namespace:** `CrimeSolverAI`
+**Namespace:** CrimeSolverAI
 
 **Dependencies:** References `mcp-mssql-server` library
 
@@ -81,22 +81,22 @@ using MCP.MSSQL.Server.Models;
 
 ## Building the Solution
 
-### Build Everything
+### BUILD EVERYTHING
 ```bash
 dotnet build CrimeSolverAI.sln
 ```
 
-### Build Just the Library
+### BUILD JUST THE LIBRARY
 ```bash
 dotnet build mcp-mssql-server/mcp-mssql-server.csproj
 ```
 
-### Build Just the Application
+### BUILD JUST THE APPLICATION
 ```bash
 dotnet build CrimeSolverAI.csproj
 ```
 
-### Run Tests
+### RUN TESTS
 ```bash
 dotnet test CrimeSolverAI.sln
 ```
@@ -119,7 +119,7 @@ Edit `appsettings.json` with your database credentials:
 ```json
 {
   "ConnectionStrings": {
-    "CrimeSolverReadOnly": "Server=yourserver;Database=yourdb;..."
+    "CrimeSolverReadOnly": "Server=localhost;Database=SequelCityCrimesDB;..."
   }
 }
 ```
@@ -129,9 +129,9 @@ Edit `appsettings.json` with your database credentials:
 dotnet run
 ```
 
-Opens browser to: `https://localhost:61087`
+Opens browser to: https://localhost:61087
 
-###  3. Test with curl
+### 3. Test with curl
 ```bash
 curl -X POST https://localhost:61087/mcp/invoke \
   -H "Content-Type: application/json" \
@@ -140,18 +140,18 @@ curl -X POST https://localhost:61087/mcp/invoke \
 
 ## Using the Library in Other Projects
 
-### Create a new ASP.NET Core project
+### CREATE A NEW ASP.NET CORE PROJECT
 ```bash
 dotnet new webapi -n MyMCPClient
 ```
 
-### Add reference to mcp-mssql-server
+### ADD REFERENCE TO MCP-MSSQL-SERVER
 ```bash
 cd MyMCPClient
 dotnet add reference ../mcp-mssql-server/mcp-mssql-server.csproj
 ```
 
-### Use in Program.cs
+### USE IN PROGRAM.CS
 ```csharp
 using MCP.MSSQL.Server;
 
@@ -161,9 +161,9 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddSingleton(sp =>
     new MSSQLMCPServer(
         connectionString,
-        queryTimeout,
+    queryTimeout,
         maxRowLimit,
-        sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
+  sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
 
 var app = builder.Build();
 
@@ -178,48 +178,48 @@ app.Run();
 
 ## Repository Structure Guidelines
 
-### Do's ?
+### DO'S
 - Keep `mcp-mssql-server` folder for library-only code
 - Reference library via `ProjectReference` in CrimeSolverAI.csproj
-- Use library namespaces (`MCP.MSSQL.Server.*`)
+- Use library namespaces (MCP.MSSQL.Server.*)
 - Share library via NuGet
 
-### Don'ts ?
+### DON'TS
 - Don't add domain-specific code to the library
 - Don't add web controllers to the library
 - Don't duplicate library code
 
 ## Development Workflow
 
-1. **Make changes to library code** (mcp-mssql-server/)
+1. MAKE CHANGES TO LIBRARY CODE (mcp-mssql-server/)
    - Increment version in csproj
    - Build and test locally
    - Commit to main
 
-2. **Make changes to application** (CrimeSolverAI/)
+2. MAKE CHANGES TO APPLICATION (CrimeSolverAI/)
    - Update application-specific logic
    - Commit to main
 
-3. **Publish library**
+3. PUBLISH LIBRARY
    ```bash
    dotnet pack mcp-mssql-server/ -c Release
    dotnet nuget push bin/Release/*.nupkg -s https://api.nuget.org/v3/index.json
    ```
 
-4. **Update application to use latest library** (if published to NuGet)
+4. UPDATE APPLICATION TO USE LATEST LIBRARY (if published to NuGet)
    ```bash
    dotnet add package MCP.MSSQL.Server --version X.Y.Z
-   ```
+ ```
 
 ## File Organization
 
 ```
 ??? mcp-mssql-server/
-?   ??? bin/          (build output - git ignore)
+?   ??? bin/  (build output - git ignore)
 ?   ??? obj/    (build output - git ignore)
 ?   ??? Models/
 ?   ?   ??? MCPRequest.cs
-??   ??? ToolDefinition.cs
+?   ?   ??? ToolDefinition.cs
 ?   ?   ??? SchemaDescribeResponse.cs
 ?   ?   ??? SQLExecuteResponse.cs
 ?   ??? Servers/
@@ -229,7 +229,7 @@ app.Run();
 ?   ??? README.md
 ?
 ??? Tests/
-?   ??? MCPServerTests.cs       (integration tests)
+?   ??? MCPServerTests.cs     (integration tests)
 ?   ??? MCPClientServiceTests.cs (model tests)
 ?   ??? QUICK_START.md
 ?   ??? MANUAL_TESTING_GUIDE.md
@@ -238,27 +238,27 @@ app.Run();
 ??? appsettings.json
 ??? CrimeSolverAI.csproj
 ??? CrimeSolverAI.sln
-??? README.md       (this file)
+??? README.md
 ??? .gitignore
 ??? GlobalUsings.cs
 ```
 
 ## Next Steps
 
-1. **? Complete** - Modular architecture with library and application
-2. **Next** - Create separate GitHub repository for `mcp-mssql-server`
-3. **Next** - Publish `MCP.MSSQL.Server` NuGet package
-4. **Next** - Add CI/CD pipeline (GitHub Actions)
-5. **Next** - Add more MCP tools and capabilities
+1. [COMPLETE] - Modular architecture with library and application
+2. [NEXT] - Create separate GitHub repository for `mcp-mssql-server`
+3. [NEXT] - Publish `MCP.MSSQL.Server` NuGet package
+4. [NEXT] - Add CI/CD pipeline (GitHub Actions)
+5. [NEXT] - Add more MCP tools and capabilities
 
 ## Support & Contributions
 
-For the library: Visit [MCP MSSQL Server Repository](https://github.com/your-org/mcp-mssql-server)
+For the library: Visit https://github.com/coburk/mcp-mssql-server
 
-For the application: Visit [CrimeSolverAI Repository](https://github.com/your-org/crimesolverai)
+For the application: Visit https://github.com/coburk/crime-solver-ai
 
 ---
 
-**Version:** 1.0.0  
-**Last Updated:** 2024  
-**License:** MIT
+Version: 1.0.0
+Last Updated: 2024
+License: MIT

@@ -5,13 +5,13 @@ A reusable, production-ready MSSQL Model Context Protocol (MCP) server implement
 ## Overview
 
 This library provides a complete MCP server implementation that:
-- ?? Exposes database schema through `schema.describe` tool
-- ??? Lists available tools through `tools.list` method
-- ?? Executes read-only SELECT queries via `sql.execute_readonly` tool
-- ?? Enforces query-level security (rejects DML/DDL statements)
-- ?? Tracks performance metrics and query execution time
-- ?? Comprehensive logging with ILogger support
-- ? Follows JSON-RPC 2.0 protocol standard
+- Exposes database schema through `schema.describe` tool
+- Lists available tools through `tools.list` method
+- Executes read-only SELECT queries via `sql.execute_readonly` tool
+- Enforces query-level security (rejects DML/DDL statements)
+- Tracks performance metrics and query execution time
+- Comprehensive logging with ILogger support
+- Follows JSON-RPC 2.0 protocol standard
 
 ## Installation
 
@@ -43,9 +43,9 @@ var maxRowLimit = builder.Configuration.GetValue("MCP:MaxRowLimit", 1000);
 builder.Services.AddSingleton(sp =>
     new MSSQLMCPServer(
         connectionString,
-      queryTimeout,
+  queryTimeout,
         maxRowLimit,
-        sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
+    sp.GetRequiredService<ILogger<MSSQLMCPServer>>()));
 
 var app = builder.Build();
 ```
@@ -61,7 +61,7 @@ Add to `appsettings.json`:
   },
   "MCP": {
     "QueryTimeoutSeconds": 30,
-  "MaxRowLimit": 1000
+    "MaxRowLimit": 1000
   }
 }
 ```
@@ -104,9 +104,9 @@ curl -X POST https://localhost:5000/mcp/invoke \
   -H "Content-Type: application/json" \
   -d '{
     "jsonrpc": "2.0",
- "id": "2",
+    "id": "2",
     "method": "schema.describe",
-  "params": {}
+    "params": {}
   }'
 ```
 
@@ -119,8 +119,8 @@ curl -X POST https://localhost:5000/mcp/invoke \
     "jsonrpc": "2.0",
     "id": "3",
     "method": "sql.execute_readonly",
-    "params": {
-   "query": "SELECT TOP 10 * FROM Cases WHERE CaseStatus = '\''Active'\''"
+ "params": {
+      "query": "SELECT TOP 10 * FROM Cases WHERE CaseStatus = 'Active'"
     }
   }'
 ```
@@ -144,7 +144,7 @@ Advertises available database tools.
     {
       "name": "sql.execute_readonly",
    "description": "Executes read-only SELECT queries...",
-      "inputSchema": [...]
+    "inputSchema": [...]
     }
   ]
 }
@@ -157,11 +157,11 @@ Retrieves complete database schema including tables, columns, and relationships.
 ```json
 {
   "databaseName": "YourDatabase",
-"retrievedAt": "2024-01-01T12:00:00Z",
+  "retrievedAt": "2024-01-01T12:00:00Z",
   "tables": [
     {
       "tableName": "Cases",
-  "columns": [...],
+      "columns": [...],
       "foreignKeys": [...],
       "rowCount": 1000
     }
@@ -187,26 +187,26 @@ Executes a read-only SELECT query.
   "rows": [...],
   "columns": ["CaseID", "CaseName", ...],
   "executionTimeMs": 45,
-  "summary": "Query returned 100 row(s)..."
+"summary": "Query returned 100 row(s)..."
 }
 ```
 
 ## Security Features
 
-- ? **Read-Only Enforcement**: Rejects INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, EXEC, GRANT, REVOKE
-- ? **Query Validation**: Validates all queries before execution
-- ? **Connection-Level Security**: Uses dedicated read-only database user
-- ? **Timeout Protection**: Configurable query timeout (default: 30 seconds)
-- ? **Row Limits**: Configurable max rows returned (default: 1,000)
-- ? **Comprehensive Logging**: All operations logged with execution metrics
+- Read-Only Enforcement: Rejects INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, EXEC, GRANT, REVOKE
+- Query Validation: Validates all queries before execution
+- Connection-Level Security: Uses dedicated read-only database user
+- Timeout Protection: Configurable query timeout (default: 30 seconds)
+- Row Limits: Configurable max rows returned (default: 1,000)
+- Comprehensive Logging: All operations logged with execution metrics
 
 ## Configuration Options
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `ConnectionString` | - | SQL Server connection string (must use read-only user) |
-| `QueryTimeoutSeconds` | 30 | Maximum query execution time in seconds |
-| `MaxRowLimit` | 1000 | Maximum rows returned per query |
+| ConnectionString | - | SQL Server connection string (must use read-only user) |
+| QueryTimeoutSeconds | 30 | Maximum query execution time in seconds |
+| MaxRowLimit | 1000 | Maximum rows returned per query |
 
 ## Error Handling
 
@@ -231,11 +231,11 @@ The server returns JSON-RPC 2.0 error responses:
 
 ## Best Practices
 
-1. **Use a Dedicated Read-Only Database User**: Create a SQL Server user with SELECT-only permissions
-2. **Enable Encryption**: Set `Encrypt=true` in connection string
-3. **Monitor Logs**: Enable `Debug` logging for `MCP.MSSQL.Server` namespace
-4. **Set Appropriate Timeouts**: Adjust `QueryTimeoutSeconds` based on your query patterns
-5. **Adjust Row Limits**: Set `MaxRowLimit` based on client capabilities and network conditions
+1. Use a Dedicated Read-Only Database User: Create a SQL Server user with SELECT-only permissions
+2. Enable Encryption: Set `Encrypt=true` in connection string
+3. Monitor Logs: Enable `Debug` logging for `MCP.MSSQL.Server` namespace
+4. Set Appropriate Timeouts: Adjust `QueryTimeoutSeconds` based on your query patterns
+5. Adjust Row Limits: Set `MaxRowLimit` based on client capabilities and network conditions
 
 ## License
 
